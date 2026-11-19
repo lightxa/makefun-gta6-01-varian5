@@ -1,19 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<title>Gatorback Delta — a foggy bayou open-world crime game</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #101a16; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  canvas#view { display: block; width: 100vw; height: 100vh; image-rendering: auto; }
+  .panel { position: absolute; color: #f3ead2; font-family: Georgia, 'Times New Roman', serif;
+    text-shadow: 0 2px 6px rgba(0,0,0,.8); pointer-events: none; user-select: none; }
+  #hudTop { top: 14px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+  #cashBox { font-size: 26px; font-weight: bold; letter-spacing: 1px; }
+  #cashBox small { display: block; font-size: 13px; font-weight: normal; opacity: .85; }
+  #stars { font-size: 30px; letter-spacing: 4px; color: #ffd75e; }
+  #stars .dim { color: rgba(255,255,255,.28); }
+  #clockBox { text-align: right; font-size: 17px; }
+  #clockBox small { display: block; font-size: 12px; opacity: .85; }
+  #objective { top: 78px; left: 16px; max-width: 430px; font-size: 16px; line-height: 1.45;
+    background: rgba(8, 20, 16, .55); border-left: 4px solid #e8b64c; padding: 10px 12px; border-radius: 0 8px 8px 0; }
+  #objective b { color: #ffd75e; }
+  #toast { left: 50%; bottom: 108px; transform: translateX(-50%); font-size: 19px; text-align: center;
+    background: rgba(8, 20, 16, .6); padding: 8px 18px; border-radius: 8px; white-space: nowrap; }
+  #hint { left: 16px; bottom: 14px; font-size: 13px; opacity: .85; font-family: Verdana, sans-serif; }
+  #healthWrap { left: 16px; bottom: 44px; width: 210px; }
+  #healthWrap .lbl { font-size: 12px; letter-spacing: 2px; opacity: .9; }
+  #healthBar { height: 10px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 5px; margin-top: 3px; }
+  #healthFill { height: 100%; width: 100%; background: #7fc96a; border-radius: 4px; }
+  #speedBox { right: 16px; bottom: 14px; text-align: right; font-size: 15px; }
+  #speedBox b { font-size: 26px; }
+  #minimap { position: absolute; right: 16px; top: 78px; border: 2px solid rgba(243,234,210,.75);
+    border-radius: 8px; box-shadow: 0 4px 18px rgba(0,0,0,.6); background: #0d1f18; }
+  #menu { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; color: #f3ead2; font-family: Georgia, serif;
+    background: linear-gradient(180deg, rgba(10,26,20,.25) 0%, rgba(10,26,20,.78) 100%); }
+  #menu h1 { font-size: 62px; margin: 0; letter-spacing: 3px; text-shadow: 0 4px 24px rgba(0,0,0,.9); }
+  #menu h2 { font-size: 20px; font-weight: normal; margin: 8px 0 4px; color: #ffd75e; letter-spacing: 2px; }
+  #menu p { max-width: 640px; font-size: 16px; line-height: 1.55; margin: 10px 18px; }
+  #menu .keys { font-family: Verdana, sans-serif; font-size: 13px; opacity: .92; line-height: 1.9; }
+  #menu button { pointer-events: auto; cursor: pointer; margin-top: 18px; font-family: Georgia, serif;
+    font-size: 20px; letter-spacing: 2px; color: #12241c; background: #e8b64c; border: none;
+    padding: 12px 34px; border-radius: 10px; box-shadow: 0 4px 0 #9a7420; }
+  #menu button:active { transform: translateY(3px); box-shadow: none; }
+  #menu .sub { font-size: 13px; opacity: .8; margin-top: 14px; font-family: Verdana, sans-serif; }
+  #pauseCard { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(6, 16, 12, .72); color: #f3ead2; font-family: Georgia, serif; text-align: center; }
+  #pauseCard .box { background: rgba(12, 30, 23, .9); border: 1px solid #e8b64c; border-radius: 12px; padding: 28px 44px; }
+  #pauseCard h2 { margin: 0 0 6px; letter-spacing: 3px; }
+  #pauseCard p { font-size: 15px; line-height: 1.6; }
+  #pauseCard button { pointer-events: auto; cursor: pointer; font-family: Georgia, serif; font-size: 16px;
+    margin: 6px; padding: 9px 20px; border-radius: 8px; border: none; background: #e8b64c; color: #12241c; }
+  #dialogue { left: 50%; bottom: 170px; transform: translateX(-50%); width: 620px; max-width: 86vw;
+    background: rgba(8, 20, 16, .82); border: 1px solid rgba(232,182,76,.7); border-radius: 10px;
+    padding: 12px 16px; font-size: 16px; line-height: 1.5; }
+  #dialogue b { color: #ffd75e; }
+  #dialogue .cont { font-size: 12px; opacity: .75; font-family: Verdana, sans-serif; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
-<script type="module" src="./src/main.js"></script>
+<div id="stage">
+  <canvas id="view" width="1280" height="720"></canvas>
+  <div id="hudTop" class="panel hidden">
+    <div id="cashBox">$0<small>GATORBACK DELTA &middot; ROOK CALLOWAY</small></div>
+    <div id="stars"></div>
+    <div id="clockBox">05:48 AM<small>DAWN &middot; FOG LIFTING</small></div>
+  </div>
+  <canvas id="minimap" width="196" height="142"></canvas>
+  <div id="objective" class="panel hidden"></div>
+  <div id="healthWrap" class="panel hidden">
+    <div class="lbl">HEALTH</div><div id="healthBar"><div id="healthFill"></div></div>
+  </div>
+  <div id="speedBox" class="panel hidden"><b>0</b> mph<br><span id="vehicleName">ON FOOT</span></div>
+  <div id="hint" class="panel hidden">WASD move &middot; E enter / exit vehicle &middot; Click shoot &middot; Shift run &middot; P pause &middot; M missions &middot; F save</div>
+  <div id="toast" class="panel hidden"></div>
+  <div id="dialogue" class="panel hidden"></div>
+  <div id="menu">
+    <h1>GATORBACK DELTA</h1>
+    <h2>A FOGGY BAYOU OPEN-WORLD CRIME GAME</h2>
+    <p>You are <b>Rook Calloway</b>, home to the delta at dawn with a borrowed airboat and a
+    debt to <b>Silas Boggs</b>. Run crates for <b>Delia Marsh</b>, dodge the parish deputies,
+    steal what you need, and pay the man before the fog lifts.</p>
+    <div class="keys">WASD / ARROWS &mdash; move &amp; drive &nbsp;&middot;&nbsp; E &mdash; enter / steal vehicle &nbsp;&middot;&nbsp;
+    MOUSE &mdash; aim, CLICK &mdash; shoot<br>SHIFT &mdash; sprint &nbsp;&middot;&nbsp; SPACE &mdash; handbrake &nbsp;&middot;&nbsp;
+    P &mdash; pause &nbsp;&middot;&nbsp; M &mdash; missions &nbsp;&middot;&nbsp; F &mdash; save game</div>
+    <button id="playBtn">START THE DAWN</button>
+    <button id="continueBtn" class="hidden">CONTINUE SAVED GAME</button>
+    <div class="sub">An original game. No Rockstar names, characters, map or music. All art, story and sound made for this delta.</div>
+  </div>
+  <div id="pauseCard"><div class="box">
+    <h2>PAUSED &mdash; THE FOG WAITS</h2>
+    <p id="pauseStats"></p>
+    <button id="resumeBtn">RESUME</button>
+    <button id="saveBtn">SAVE GAME</button>
+    <button id="quitBtn">QUIT TO TITLE</button>
+  </div></div>
+</div>
+<script type="module" src="./src/boot.js"></script>
 </body>
 </html>
